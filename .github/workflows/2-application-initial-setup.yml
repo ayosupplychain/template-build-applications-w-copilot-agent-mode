@@ -67,13 +67,29 @@ jobs:
 
       # END: Check practical exercise
 
+      - name: Install nunjucks
+        run: npm install nunjucks
+
       - name: Build message - step finished
         id: build-message-step-finish
-        uses: skills/action-text-variables@v1
-        with:
-          template-file: skills-response-templates/step-feedback/step-finished-prepare-next-step.md
-          template-vars: |
-            next_step_number=3
+        run: |
+          cat > render_template.js << 'EOF'
+          const nunjucks = require('nunjucks');
+          const fs = require('fs');
+          
+          const templateContent = fs.readFileSync('step-feedback/step-finished-prepare-next-step.md', 'utf8');
+          const variables = {
+            next_step_number: 3
+          };
+          
+          const rendered = nunjucks.renderString(templateContent, variables);
+          console.log(rendered);
+          EOF
+          
+          RENDERED_CONTENT=$(node render_template.js)
+          echo "updated-text<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RENDERED_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
 
       - name: Update comment - step finished
         run: |
@@ -94,12 +110,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Get response templates
-        uses: actions/checkout@v4
-        with:
-          repository: skills/response-templates
-          path: skills-response-templates
 
       - name: Create comment - add step content
         run: |

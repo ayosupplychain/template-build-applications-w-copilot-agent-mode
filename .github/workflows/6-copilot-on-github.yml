@@ -61,12 +61,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Get response templates
-        uses: actions/checkout@v4
-        with:
-          repository: skills/response-templates
-          path: skills-response-templates
-
       - name: Create comment - add step content
         run: |
           gh issue comment "$ISSUE_URL" \
@@ -89,22 +83,37 @@ jobs:
 
       - name: Get response templates
         uses: actions/checkout@v4
-        with:
-          repository: skills/response-templates
-          path: skills-response-templates
 
       - name: Configure Git user
         run: |
           git config user.name github-actions[bot]
           git config user.email github-actions[bot]@users.noreply.github.com
 
+      - name: Install nunjucks
+        run: npm install nunjucks
+
       - name: Build message - congratulations
         id: build-message-congratulations
-        uses: skills/action-text-variables@v1
-        with:
-          template-file: skills-response-templates/readme/congratulations.md
-          template-vars: |
-            login=${{ github.actor }}
+        run: |
+          cat > render_template.js << 'EOF'
+          const nunjucks = require('nunjucks');
+          const fs = require('fs');
+          
+          const templateContent = fs.readFileSync('step-feedback/congratulations.md', 'utf8');
+          const variables = {
+            login: process.env.GITHUB_ACTOR
+          };
+          
+          const rendered = nunjucks.renderString(templateContent, variables);
+          console.log(rendered);
+          EOF
+          
+          RENDERED_CONTENT=$(node render_template.js)
+          echo "updated-text<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RENDERED_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
 
       - name: Update README - congratulations
         run: |
@@ -122,12 +131,28 @@ jobs:
 
       - name: Build message - exercise finished
         id: build-finish-message
-        uses: skills/action-text-variables@v1
-        with:
-          template-file: skills-response-templates/step-feedback/lesson-finished.md
-          template-vars: |
-            login=${{ github.actor }}
-            repo_full_name=${{ github.repository }}
+        run: |
+          cat > render_template.js << 'EOF'
+          const nunjucks = require('nunjucks');
+          const fs = require('fs');
+          
+          const templateContent = fs.readFileSync('step-feedback/exercise-finished.md', 'utf8');
+          const variables = {
+            login: process.env.GITHUB_ACTOR,
+            repo_full_name: process.env.GITHUB_REPOSITORY
+          };
+          
+          const rendered = nunjucks.renderString(templateContent, variables);
+          console.log(rendered);
+          EOF
+          
+          RENDERED_CONTENT=$(node render_template.js)
+          echo "updated-text<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$RENDERED_CONTENT" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
 
       - name: Create comment - exercise finished
         run: |
